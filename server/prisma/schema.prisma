@@ -1,0 +1,134 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum VideoVisibility {
+  public
+  unlisted
+  private
+}
+
+enum VideoStatus {
+  uploading
+  processing
+  ready
+  failed
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  password  String
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  channel Channel?
+  likes   Like[]
+  comments Comment[]
+}
+
+model Channel {
+  id          String   @id @default(uuid())
+  handle      String   @unique
+  name        String
+  banner      String?
+  profilePic  String?
+  description String?
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  videos        Video[]
+  subscribers   Subscription[]
+}
+
+model Video {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  videoUrl    String
+  thumbnail   String?
+  duration    Int
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  visibility VideoVisibility
+  status     VideoStatus
+
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id])
+
+  likes     Like[]
+  comments  Comment[]
+
+  @@index([channelId])
+  @@index([createdAt])
+}
+
+model Like {
+  userId  String
+  videoId String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  video Video @relation(fields: [videoId], references: [id])
+
+  @@id([userId, videoId])
+  @@index([videoId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  text      String
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  userId  String
+  videoId String
+  parentId String?
+
+  user   User   @relation(fields: [userId], references: [id])
+  video  Video  @relation(fields: [videoId], references: [id])
+  parent Comment? @relation("Thread", fields: [parentId], references: [id])
+  replies Comment[] @relation("Thread")
+
+  @@index([videoId])
+}
+
+model Subscription {
+  userId    String
+  channelId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  channel Channel @relation(fields: [channelId], references: [id])
+
+  @@id([userId, channelId])
+  @@index([channelId])
+}
+
+model WatchHistory {
+  userId   String
+  videoId  String
+  watchedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  video Video @relation(fields: [videoId], references: [id])
+
+  @@id([userId, videoId])
+  @@index([userId, watchedAt])
+}

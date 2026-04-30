@@ -1,0 +1,20 @@
+{
+  "name": "server",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^25.6.0",
+    "dotenv": "^17.4.2",
+    "prisma": "^7.8.0"
+  },
+  "peerDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@fastify/env": "^6.0.0",
+    "fastify": "^5.8.5",
+    "zod": "^4.3.6"
+  }
+}

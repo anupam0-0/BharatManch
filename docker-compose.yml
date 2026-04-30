@@ -1,0 +1,49 @@
+services:
+  # ── PostgreSQL ──
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bharatmanch
+      POSTGRES_PASSWORD: bharatmanch_secret
+      POSTGRES_DB: bharatmanch
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bharatmanch -d bharatmanch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend (Fastify + Bun) ──
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://bharatmanch:bharatmanch_secret@db:5432/bharatmanch?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Frontend (Next.js) ──
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:3001
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
