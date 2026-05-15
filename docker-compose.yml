@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "4000:4000"
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://bharatmanch:bharatmanch_secret@db:5432/bharatmanch?schema=public
