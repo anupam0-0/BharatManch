@@ -19,13 +19,28 @@ const getChannelByHandle = async (
       return channel;
 };
 
-// const getVideosByHandle = async (prisma: PrismaClient, handle: string) => {
-//       const handle = parse(z.string().lowercase(), inputHandle);
+const getVideosByHandle = async (
+      prisma: PrismaClient,
+      handle: string,
+      page: number,
+      limit: number = 30,
+) => {
+      const channel = await prisma.channel.findFirst({
+            where: { handle },
+            select: { id: true },
+      });
 
-//       const videos = getVideosByHandle(prisma, inputHandle);
-//       if (!channel) throw new AppError("NOT_FOUND", "Channel not found!");
-//       return channel;
-// };
+      if (!channel) return null;
+
+      const videos = await prisma.video.findMany({
+            where: { channelId: channel.id, visibility: "PUBLIC" },
+            orderBy: { createdAt: "desc" },
+            take: limit,
+            skip: (page - 1) * limit,
+      });
+
+      return videos;
+};
 
 const updateMyChannel = async (
       prisma: PrismaClient,
@@ -42,5 +57,6 @@ const updateMyChannel = async (
 export default {
       getMyChannelById,
       getChannelByHandle,
+      getVideosByHandle,
       updateMyChannel,
 };

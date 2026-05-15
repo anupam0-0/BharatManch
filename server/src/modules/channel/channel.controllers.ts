@@ -16,6 +16,11 @@ const updateChannelSchema = z.object({
       link: z.array(z.string()).optional(),
 });
 
+const paginationSchema = z.object({
+      page: z.coerce.number().int().min(1).optional(),
+      limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
 const getMyChannel = async (req: FastifyRequest, res: FastifyReply) => {
       //   console.log("Hello colt");
       //   get user from req.user
@@ -39,15 +44,27 @@ const getChannelByHandle = async (
       return channel;
 };
 
+// get /:handle/videos
 const getChannelVideos = async (
-      req: FastifyRequest<{ Params: { handle: string } }>,
+      req: FastifyRequest<{
+            Params: { handle: string };
+            Query: { page?: number; limit?: number };
+      }>,
       res: FastifyReply,
 ) => {
       const { handle } = validateSchema(handleSchema, req.params);
-      const videos = await channelSevices.getChannelByHandle(
+      const { page, limit } = validateSchema(paginationSchema, req.query);
+      const videos = await channelSevices.getVideosByHandle(
             req.server.prisma,
             handle,
+            page || 1,
+            limit || 10,
       );
+
+      if (!videos) {
+            throw new AppError("NOT_FOUND", "Channel not found");
+      }
+
       return videos;
 };
 

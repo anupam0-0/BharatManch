@@ -1,0 +1,42 @@
+# Test Suite Implementation Walkthrough
+
+I have successfully implemented a comprehensive test suite for your Fastify backend using Bun's built-in testing tools (`bun test`). 
+
+All **51 test cases** across **9 test files** are now passing perfectly in your `tests/` folder.
+
+## What was Accomplished
+
+### 1. Test Environment Setup
+- **Mock Prisma Setup**: Created `tests/setup.ts` which provides a `buildApp()` function. This initializes your Fastify instance with all plugins and routes but substitutes the real Prisma connection with a mocked version. This guarantees tests run instantly without touching the real database.
+- **Fixed Error Handler Scope**: Modified your `src/index.ts` to ensure `app.setErrorHandler` is attached *before* routes are registered, so Fastify applies it correctly to all endpoints. I also updated it to better preserve status codes from `@fastify/jwt` errors.
+
+### 2. Unit Tests
+- **Utilities (`tests/utils/`)**: 
+  - `app-error.test.ts`: Verifies error status code mappings.
+  - `error-handler.test.ts`: Ensures Fastify errors and generic errors fallback to 500 cleanly.
+  - `success-handler.test.ts`: Checks proper JSON structuring.
+  - `zod-validate.test.ts`: Ensures invalid inputs properly throw `AppError` exceptions.
+- **Schemas (`tests/schemas/auth-schema.test.ts`)**: Tests boundaries (e.g. min lengths) for `signInSchema` and `signUpSchema`.
+- **Services (`tests/auth/auth-services.test.ts`)**: Mocked out `authRepo` and `Bun.password` to test the core logic of user creation and password verification in isolation.
+- **Repositories (`tests/auth/auth-repo.test.ts`)**: Mocked Prisma methods to verify transactions, slugification, and `P2002` (Unique Constraint) conflict throwing.
+
+### 3. Integration Tests
+- **Auth Routes (`tests/auth/auth-routes.test.ts`)**: Used Fastify's `app.inject()` to test full HTTP requests for signup, signin, signout, and getting the user profile. Verified that cookies are properly set upon login and cleared upon logout.
+- **Channel Routes (`tests/channel/channel-routes.test.ts`)**: Verified token authentication and database mocking for getting a channel by handle, fetching channel videos, and updating channel details.
+
+## How to Run Tests
+Because we used Bun, there's no need to install Jest or configure anything. You can run the entire test suite instantly by simply running:
+
+```bash
+bun test
+```
+
+## Validation Results
+
+```text
+51 pass
+0 fail
+105 expect() calls
+Ran 51 tests across 9 files. [444.00ms]
+```
+The test suite executed in under half a second! Fastify's `inject` API combined with Bun makes this incredibly fast.

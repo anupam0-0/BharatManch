@@ -18,6 +18,9 @@ export const mockPrisma = {
     update: mock(),
     create: mock(),
   },
+  video: {
+    findMany: mock(),
+  },
   $transaction: mock(),
 } as any;
 

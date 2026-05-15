@@ -11,6 +11,7 @@ describe("Channel Routes", () => {
     mockPrisma.channel.findUnique.mockClear();
     mockPrisma.channel.findFirst.mockClear();
     mockPrisma.channel.update.mockClear();
+    mockPrisma.video.findMany.mockClear();
   });
 
   afterAll(async () => {
@@ -88,11 +89,18 @@ describe("Channel Routes", () => {
   });
 
   describe("GET /channels/:handle/videos", () => {
-    test("returns channel videos (currently returns channel)", async () => {
+    test("returns channel videos", async () => {
+      // Mock finding the channel first
       mockPrisma.channel.findFirst.mockResolvedValueOnce({ 
         id: "channel2", 
         handle: "somechannel"
       });
+
+      // Mock finding the videos
+      mockPrisma.video.findMany.mockResolvedValueOnce([
+        { id: "vid1", title: "My Video" },
+        { id: "vid2", title: "Another Video" }
+      ]);
 
       const response = await app.inject({
         method: "GET",
@@ -101,7 +109,79 @@ describe("Channel Routes", () => {
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.handle).toBe("somechannel"); // The controller currently calls getChannelByHandle
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBe(2);
+      expect(body[0].title).toBe("My Video");
+    });
+
+    test("returns 404 if channel not found", async () => {
+      mockPrisma.channel.findFirst.mockResolvedValueOnce(null);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/channels/unknown/videos",
+      });
+
+      expect(response.statusCode).toBe(404);
+      const body = JSON.parse(response.body);
+      expect(body.code).toBe("NOT_FOUND");
+    });
+
+    test("handles pagination correctly with string query params", async () => {
+      // Fastify parses query string as strings, testing coercion or defaults
+      mockPrisma.channel.findFirst.mockResolvedValueOnce({ 
+        id: "channel3", 
+        handle: "paginatedchannel"
+      });
+
+      mockPrisma.video.findMany.mockResolvedValueOnce([
+        { id: "vid1", title: "Video 1" },
+        { id: "vid2", title: "Video 2" },
+      ]);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/channels/paginatedchannel/videos?page=2&limit=2",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBe(2);
+      
+      // Verify Prisma was called with correct pagination args
+      expect(mockPrisma.video.findMany).toHaveBeenCalledWith({
+        where: { channelId: "channel3", visibility: "PUBLIC" },
+        orderBy: { createdAt: "desc" },
+        take: 2,
+        skip: 2, // (2 - 1) * 2
+      });
+    });
+
+    test("handles default pagination when query params are missing", async () => {
+      mockPrisma.channel.findFirst.mockResolvedValueOnce({ 
+        id: "channel4", 
+        handle: "defaultchannel"
+      });
+
+      mockPrisma.video.findMany.mockResolvedValueOnce([
+        { id: "vid1", title: "Default Video 1" },
+      ]);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/channels/defaultchannel/videos",
+      });
+
+      expect(response.statusCode).toBe(200);
+      
+      // Verify Prisma was called with correct default pagination args (page 1, limit 10)
+      expect(mockPrisma.video.findMany).toHaveBeenCalledWith({
+        where: { channelId: "channel4", visibility: "PUBLIC" },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        skip: 0,
+      });
     });
   });
 
