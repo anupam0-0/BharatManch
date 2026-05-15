@@ -13,30 +13,35 @@ datasource db {
 }
 
 enum VideoVisibility {
-  public
-  unlisted
-  private
+  PUBLIC
+  UNLISTED
+  PRIVATE
 }
 
 enum VideoStatus {
-  uploading
-  processing
-  ready
-  failed
+  EMPTY
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum ReactionType {
+  LIKE
+  DISLIKE
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String    @id @default(uuid())
+  email     String    @unique
   firstName String
   lastName  String
   password  String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  channel Channel?
-  likes   Like[]
-  comments Comment[]
+  channel        Channel?
 }
 
 model Channel {
@@ -44,91 +49,101 @@ model Channel {
   handle      String   @unique
   name        String
   banner      String?
-  profilePic  String?
+  avatar      String?
   description String?
-  createdAt   DateTime @default(now())
-  deletedAt   DateTime?
+  links       String[]
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  videos        Video[]
-  subscribers   Subscription[]
+  videos   Video[]
+  likes    Like[]
+  comments Comment[]
+
+  subscriptions Subscription[] @relation("ViewerSubscriptions")
+  subscribers   Subscription[] @relation("CreatorSubscribers")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([name])
 }
 
 model Video {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String
   description String?
   videoUrl    String
   thumbnail   String?
   duration    Int
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  visibility VideoVisibility
-  status     VideoStatus
+  visibility VideoVisibility @default(UNLISTED) // [unlisted, public, ban]
+  status     VideoStatus @default(EMPTY) // [empty, pending, uploaded]
 
   channelId String
   channel   Channel @relation(fields: [channelId], references: [id])
 
-  likes     Like[]
-  comments  Comment[]
+  likes          Like[]
+  comments       Comment[]
 
+  // @@index([title]) // not indexing title as it can be long and we will be using full text search for searching videos by title and description
+  // Later we’ll do Postgres full-text or external search. For now, we can just filter by channel and visibility.
   @@index([channelId])
   @@index([createdAt])
+  @@index([visibility, status, createdAt]) //feeds (pulic videos, uplodaded videos, newest first)
 }
 
 model Like {
-  userId  String
-  videoId String
+  viewerId String
+  videoId  String
+
+  reaction ReactionType @default(LIKE) // [Like, Dislike]
+
+  viewer Channel  @relation(fields: [viewerId], references: [id])
+  video  Video @relation(fields: [videoId], references: [id])
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user  User  @relation(fields: [userId], references: [id])
-  video Video @relation(fields: [videoId], references: [id])
-
-  @@id([userId, videoId])
+  @@id([viewerId, videoId])
   @@index([videoId])
 }
 
 model Comment {
-  id        String   @id @default(uuid())
-  text      String
-  createdAt DateTime @default(now())
+  id   String @id @default(uuid())
+  text String
+
+  viewerId String
+  videoId  String
+
+  viewer Channel @relation(fields: [viewerId], references: [id])
+  video  Video   @relation(fields: [videoId], references: [id])
+
+  // saving it for v1.1
+  // parentId String?
+  // parent  Comment?  @relation("Thread", fields: [parentId], references: [id])
+  // replies Comment[] @relation("Thread")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  userId  String
-  videoId String
-  parentId String?
+  @@index([videoId, createdAt]) // for fetching comments for a video sorted by newest first
 
-  user   User   @relation(fields: [userId], references: [id])
-  video  Video  @relation(fields: [videoId], references: [id])
-  parent Comment? @relation("Thread", fields: [parentId], references: [id])
-  replies Comment[] @relation("Thread")
-
-  @@index([videoId])
 }
 
 model Subscription {
-  userId    String
-  channelId String
+  viewerId  String
+  creatorId String
   createdAt DateTime @default(now())
 
-  user    User    @relation(fields: [userId], references: [id])
-  channel Channel @relation(fields: [channelId], references: [id])
+  viewer  Channel @relation("ViewerSubscriptions", fields: [viewerId], references: [id])
+  creator Channel @relation("CreatorSubscribers", fields: [creatorId], references: [id])
 
-  @@id([userId, channelId])
-  @@index([channelId])
-}
-
-model WatchHistory {
-  userId   String
-  videoId  String
-  watchedAt DateTime @default(now())
-
-  user  User  @relation(fields: [userId], references: [id])
-  video Video @relation(fields: [videoId], references: [id])
-
-  @@id([userId, videoId])
-  @@index([userId, watchedAt])
+  @@id([viewerId, creatorId])
+  @@index([creatorId])
 }

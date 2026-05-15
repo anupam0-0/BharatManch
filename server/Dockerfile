@@ -36,7 +36,7 @@ COPY prisma.config.ts ./
 COPY tsconfig.json ./
 COPY src ./src
 
-EXPOSE 3001
+EXPOSE 4000
 
 # Run migrations then start the server
 CMD ["sh", "-c", "bunx prisma migrate deploy && bun run src/index.ts"]
